@@ -12,8 +12,9 @@ node_modules/
 .DS_Store
 ._*
 
-# Deployment notes — contain LAN IP, SSH port, NAS username/layout
+# Deployment/ops notes — contain LAN IP, SSH port, NAS username/layout
 DEPLOY.md
+MAINTENANCE.md
 
 # Trip data — raw CSVs contain per-second GPS traces; never publish
 *.csv
