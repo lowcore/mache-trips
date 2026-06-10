@@ -20,7 +20,8 @@ Car Scanner app ──export──> iCloud Drive folder
 ```
 
 1. After a drive, Car Scanner exports its log (`exported_records.zip`) to a
-   folder on iCloud Drive.
+   folder on iCloud Drive. NOTE: You must manually disconnect Car Scanner from
+   OBDLink or you will get incomplete logs.
 2. `watcher.py` runs continuously via launchd, notices the new file, waits
    for iCloud to finish syncing, unzips it, and feeds each CSV to
    `process_trip.py`. Sources are deleted after a fully successful import;
