@@ -35,9 +35,17 @@ KM_PER_MI = 1.609344
 # ---------------------------------------------------------------- parsing
 
 def parse_csv(path):
-    """Return (series, units): series maps PID -> [(seconds, value)], sorted by time."""
+    """Return (series, units): series maps PID -> [(seconds, value)], sorted by time.
+
+    SECONDS resets to 0 at local midnight. Rows are logged in chronological
+    order, so a large backwards jump between consecutive rows means the trip
+    crossed midnight; unwrap by carrying a whole-day offset forward so times
+    keep increasing past 86400.
+    """
     series = defaultdict(list)
     units = {}
+    offset = 0.0
+    prev_t = None
     with open(path, newline="", encoding="utf-8-sig") as f:
         reader = csv.reader(f, delimiter=";")
         header = next(reader, None)
@@ -52,7 +60,10 @@ def parse_csv(path):
                 v = float(row[2])
             except ValueError:
                 continue
-            series[pid].append((t, v))
+            if prev_t is not None and t < prev_t - 43200:  # half a day: jitter-proof
+                offset += 86400.0
+            prev_t = t
+            series[pid].append((t + offset, v))
             units.setdefault(pid, row[3].strip())
     for pid in series:
         series[pid].sort(key=lambda p: p[0])
@@ -166,10 +177,10 @@ def trip_timestamps(csv_path, t_lo, t_hi):
     else:
         base_date = datetime.fromtimestamp(Path(csv_path).stat().st_mtime).replace(
             hour=0, minute=0, second=0, microsecond=0)
+    # parse_csv unwraps midnight crossings, so t_hi may exceed 86400;
+    # timedelta rolls that into the next day on its own.
     start = base_date + timedelta(seconds=t_lo)
     end = base_date + timedelta(seconds=t_hi)
-    if end < start:  # trip crossed midnight
-        end += timedelta(days=1)
     return start, end
 
 

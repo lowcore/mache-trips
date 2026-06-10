@@ -9,10 +9,11 @@ filenames cannot be used for dedup). This watcher:
      a periodic rescan for backlog and anything missed)
   2. Waits until the file size is stable for 3 s (iCloud sync delay)
   3. Unzips if needed and runs process_trip.py on each CSV inside
-  4. DELETES the source file after successful processing (the trip CSV is
-     archived to <base>/raw/ by process_trip.py first). Duplicate imports
+  4. DELETES the source file after fully successful processing (the trip CSV
+     is archived to <base>/raw/ by process_trip.py first). Duplicate imports
      are prevented by the DB's unique source_file constraint, not filenames.
-  5. Moves unparseable files to <watch_dir>/failed/ instead of deleting
+  5. Moves failed or partially-failed files to <watch_dir>/failed/ instead
+     of deleting
   6. Leaves files in place for retry when the NAS share is not mounted
   7. Logs to ~/logs/mache_watcher.log
   8. Asks iCloud to download any .icloud placeholder files it finds
@@ -184,12 +185,17 @@ def process_file(path, watch_dir, base):
             else:
                 failed += 1
 
-        if succeeded:
+        if succeeded and not failed:
             # Trip CSVs are archived in <base>/raw/, so the source is redundant.
             path.unlink()
-            log.info("done %s (%d trip%s imported%s) — source deleted",
-                     name, succeeded, "s" if succeeded != 1 else "",
-                     f", {failed} failed" if failed else "")
+            log.info("done %s (%d trip%s imported) — source deleted",
+                     name, succeeded, "s" if succeeded != 1 else "")
+        elif succeeded:
+            # Partial success: keep the source so the failed CSVs aren't lost.
+            # Reprocessing the imported ones later is a harmless upsert.
+            log.warning("done %s (%d imported, %d failed) — quarantining source",
+                        name, succeeded, failed)
+            quarantine(path, watch_dir)
         else:
             quarantine(path, watch_dir)
 
