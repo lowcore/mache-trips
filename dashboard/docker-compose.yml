@@ -1,0 +1,26 @@
+# DSM 6.2.4 ships docker-compose 1.x — stick to the v2.4 file format.
+version: "2.4"
+
+services:
+  mache-dashboard:
+    build: .
+    image: mache-dashboard:latest
+    container_name: mache-dashboard
+    restart: always
+    # Run as the NAS user "dave" (1026:100) so Synology ACLs on the mounted
+    # share resolve to a known identity; the image's default "node" user
+    # (uid 1000) has no matching DSM account and gets SQLITE_CANTOPEN.
+    # The share's ACL grants access via the administrators group (gid 101),
+    # so the container needs that supplementary group too.
+    user: "1026:100"
+    group_add:
+      - "101"
+    ports:
+      - "3000:3000"
+    # Mount the whole share read-only rather than the single trips.db file:
+    # a file bind breaks if the inode is ever replaced, and a directory mount
+    # also covers any -wal/-shm sidecar files SQLite might create.
+    volumes:
+      - /volume1/mache:/data:ro
+    environment:
+      - TRIPS_DB=/data/trips.db

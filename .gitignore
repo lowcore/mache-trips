@@ -1,0 +1,22 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node / Next.js
+node_modules/
+.next/
+*.log
+
+# macOS
+.DS_Store
+._*
+
+# Deployment notes — contain LAN IP, SSH port, NAS username/layout
+DEPLOY.md
+
+# Trip data — raw CSVs contain per-second GPS traces; never publish
+*.csv
+*.db
+exported_records*.zip
+trip_*.json

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.dave.machetrips</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Volumes/OWC2TB/dave/dev/projects/mache-trips/.venv/bin/python</string>
+		<string>/Volumes/OWC2TB/dave/dev/projects/mache-trips/watcher.py</string>
+	</array>
+
+	<!-- Start at login -->
+	<key>RunAtLoad</key>
+	<true/>
+
+	<!-- Restart on crash (but allow clean exits, e.g. launchctl bootout) -->
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+
+	<!-- If it crash-loops, wait 30 s between restarts -->
+	<key>ThrottleInterval</key>
+	<integer>30</integer>
+
+	<!-- watcher.py logs here itself; this catches tracebacks and any
+	     stray stdout/stderr too (launchd appends, never truncates) -->
+	<key>StandardOutPath</key>
+	<string>/Users/dave/logs/mache_watcher.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/dave/logs/mache_watcher.log</string>
+
+	<key>WorkingDirectory</key>
+	<string>/Volumes/OWC2TB/dave/dev/projects/mache-trips</string>
+
+	<key>ProcessType</key>
+	<string>Background</string>
+</dict>
+</plist>
