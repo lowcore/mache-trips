@@ -189,8 +189,11 @@ def compute_metrics(trip, csv_path):
     start_dt, end_dt = trip_timestamps(csv_path, t_lo, t_hi)
     duration_min = round((end_dt - start_dt).total_seconds() / 60.0, 2)
 
-    odo_start = trip.first("Vehicle Odometer Reading", "Odometer ECM")
-    odo_end = trip.last("Vehicle Odometer Reading", "Odometer ECM")
+    ODO_PIDS = ("Vehicle Odometer Reading", "Odometer ECM", "Odometer BCM",
+                "Odometer FSM", "Odometer PSCM")
+    odo_unit = trip.unit(*ODO_PIDS)
+    odo_start = to_miles(trip.first(*ODO_PIDS), odo_unit)
+    odo_end = to_miles(trip.last(*ODO_PIDS), odo_unit)
 
     # Distance: per-trip counter is reliable; odometer PIDs are polled too
     # rarely to show a delta on short trips.

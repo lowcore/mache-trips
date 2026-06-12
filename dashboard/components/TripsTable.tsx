@@ -53,6 +53,11 @@ const cols: Col[] = [
   { key: "trip_start", label: "Start" },
   { key: "duration_min", label: "Min", fmt: (v) => v.toFixed(0) },
   { key: "distance_mi", label: "Miles", fmt: (v) => v.toFixed(1) },
+  {
+    key: "odometer_end",
+    label: "Odo",
+    fmt: (v) => v.toLocaleString("en-US", { maximumFractionDigits: 0 }),
+  },
   { key: "kwh_used", label: "kWh", fmt: (v) => v.toFixed(2) },
   { key: "mi_per_kwh", label: "mi/kWh", fmt: (v) => v.toFixed(2) },
   {
