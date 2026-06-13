@@ -280,6 +280,12 @@ def compute_metrics(trip, csv_path):
     return metrics
 
 
+def is_junk_trip(metrics):
+    """True for logs with no usable drive data — e.g. Car Scanner left
+    connected to the OBDLink after a drive exports a near-empty log."""
+    return not metrics["distance_mi"] and not metrics["kwh_used"]
+
+
 # ---------------------------------------------------------------- outputs
 
 DDL = """
@@ -404,6 +410,20 @@ def main():
     missing = [k for k, v in metrics.items() if v is None]
     if missing:
         print(f"\nnote: missing PIDs for: {', '.join(missing)}", file=sys.stderr)
+
+    if is_junk_trip(metrics):
+        # Archive the CSV anyway so a misclassified trip is recoverable by
+        # reprocessing from raw/; just don't pollute the DB or processed/.
+        print("\nskipped import: no distance and no energy recorded "
+              "(partial/corrupted log)")
+        if not args.dry_run:
+            raw_dir = Path(args.base) / "raw"
+            raw_dir.mkdir(parents=True, exist_ok=True)
+            archive_path = raw_dir / csv_path.name
+            if csv_path.resolve() != archive_path.resolve():
+                shutil.copy2(csv_path, archive_path)
+            print(f"archived CSV to {archive_path}")
+        return
 
     if args.dry_run:
         return

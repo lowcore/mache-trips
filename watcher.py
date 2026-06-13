@@ -125,7 +125,7 @@ def run_process_trip(csv_path, base):
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
     if result.returncode == 0:
         for line in result.stdout.strip().split("\n"):
-            if line.startswith(("wrote", "inserted", "updated", "archived")):
+            if line.startswith(("wrote", "inserted", "updated", "archived", "skipped")):
                 log.info("  %s", line)
         return True
     log.error("process_trip failed for %s: %s", csv_path.name,
