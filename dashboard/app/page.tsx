@@ -32,9 +32,15 @@ export default function Page() {
 
   const chrono = [...trips].reverse();
   const points: ChartPoint[] = chrono.map((t: Trip) => ({
+    ts: new Date(t.trip_start.replace(" ", "T")).getTime(), // local time -> epoch ms
     label: shortLabel(t.trip_start),
     mi_per_kwh: t.mi_per_kwh,
     soh_pct: t.soh_pct,
+    hvb_temp_avg_f: t.hvb_temp_avg_f,
+    soc_depth:
+      t.soc_start_pct != null && t.soc_end_pct != null
+        ? Number((t.soc_start_pct - t.soc_end_pct).toFixed(1))
+        : null,
     v12_start: t.v12_start,
     v12_end: t.v12_end,
     v12_soc_start: t.v12_soc_start,
@@ -100,13 +106,13 @@ export default function Page() {
 
       <section className="grid-2">
         <div>
-          <h2>Monthly efficiency</h2>
+          <h2>Monthly miles &amp; efficiency</h2>
           <div className="panel">
             <MonthlyBars data={monthlyData} epa={EPA_MI_PER_KWH} />
           </div>
         </div>
         <div>
-          <h2>HVB State of Health</h2>
+          <h2>Battery health &amp; stress</h2>
           <div className="panel">
             <SohTrend data={points} />
             <div className="statline">

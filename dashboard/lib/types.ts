@@ -49,6 +49,8 @@ export type Monthly = {
   mi_per_kwh: number;
   trips: number;
   avg_ambient_f: number | null;
+  logged_miles: number; // sum of per-trip distance_mi (logged drives only)
+  odo_miles: number | null; // odometer delta across the month (all driving); null if no readings
 };
 
 export type Summary = {
