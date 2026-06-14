@@ -381,7 +381,11 @@ def write_outputs(metrics, csv_path, base):
 
     archive_path = raw_dir / Path(csv_path).name
     if Path(csv_path).resolve() != archive_path.resolve():
-        shutil.copy2(csv_path, archive_path)
+        # copyfile (bytes only), not copy2: copy2 -> copystat -> os.chflags,
+        # which the NAS SMB share rejects with EINVAL when the source carries
+        # macOS file flags (e.g. UF_TRACKED on mache-logger CSVs). The archive
+        # only needs the bytes, so skip metadata replication entirely.
+        shutil.copyfile(csv_path, archive_path)
 
     return json_path, db_path, inserted
 
@@ -421,7 +425,7 @@ def main():
             raw_dir.mkdir(parents=True, exist_ok=True)
             archive_path = raw_dir / csv_path.name
             if csv_path.resolve() != archive_path.resolve():
-                shutil.copy2(csv_path, archive_path)
+                shutil.copyfile(csv_path, archive_path)  # bytes only; see write_outputs
             print(f"archived CSV to {archive_path}")
         return
 
