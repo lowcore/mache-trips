@@ -56,6 +56,15 @@ log = logging.getLogger("mache_watcher")
 _work_lock = threading.Lock()
 
 
+class RetryLater(Exception):
+    """Abandon the current source and leave it in place for the next rescan.
+
+    Raised for environmental failures (process_trip timed out, or couldn't be
+    launched at all) rather than bad file content. The source is neither
+    deleted nor quarantined, so it's retried automatically once the
+    environment recovers."""
+
+
 def setup_logging():
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     fmt = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
@@ -122,7 +131,18 @@ def ensure_local(path, timeout=120):
 
 def run_process_trip(csv_path, base):
     cmd = [sys.executable, str(PROCESS_SCRIPT), str(csv_path), "--base", str(base)]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        log.warning("process_trip timed out (>300s), will retry on next scan: %s",
+                    csv_path.name)
+        raise RetryLater
+    except OSError as e:
+        # e.g. the venv interpreter was deleted mid-run (Homebrew python
+        # upgrade). Environmental, not a bad file — leave it for retry.
+        log.warning("could not launch process_trip (%s), will retry on next scan: %s",
+                    e, csv_path.name)
+        raise RetryLater
     if result.returncode == 0:
         for line in result.stdout.strip().split("\n"):
             if line.startswith(("wrote", "inserted", "updated", "archived", "skipped")):
@@ -162,28 +182,31 @@ def process_file(path, watch_dir, base):
 
         log.info("processing %s", name)
         succeeded = failed = 0
-        if path.suffix.lower() == ".zip":
-            try:
-                with zipfile.ZipFile(path) as zf:
-                    members = [m for m in zf.namelist()
-                               if m.lower().endswith(".csv") and not m.startswith("__MACOSX")]
-                    with tempfile.TemporaryDirectory() as tmp:
-                        for member in members:
-                            extracted = Path(zf.extract(member, tmp))
-                            if run_process_trip(extracted, base):
-                                succeeded += 1
-                            else:
-                                failed += 1
-            except zipfile.BadZipFile:
-                log.error("bad zip (corrupt or still syncing?), will retry: %s", name)
-                return
-            if not members:
-                log.warning("no CSVs inside %s", name)
-        else:
-            if run_process_trip(path, base):
-                succeeded += 1
+        try:
+            if path.suffix.lower() == ".zip":
+                try:
+                    with zipfile.ZipFile(path) as zf:
+                        members = [m for m in zf.namelist()
+                                   if m.lower().endswith(".csv") and not m.startswith("__MACOSX")]
+                        with tempfile.TemporaryDirectory() as tmp:
+                            for member in members:
+                                extracted = Path(zf.extract(member, tmp))
+                                if run_process_trip(extracted, base):
+                                    succeeded += 1
+                                else:
+                                    failed += 1
+                except zipfile.BadZipFile:
+                    log.error("bad zip (corrupt or still syncing?), will retry: %s", name)
+                    return
+                if not members:
+                    log.warning("no CSVs inside %s", name)
             else:
-                failed += 1
+                if run_process_trip(path, base):
+                    succeeded += 1
+                else:
+                    failed += 1
+        except RetryLater:
+            return  # source left in place; the next rescan retries it
 
         if succeeded and not failed:
             # Trip CSVs are archived in <base>/raw/, so the source is redundant.
