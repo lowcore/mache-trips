@@ -21,6 +21,7 @@ const C = {
   bad: "#f87171",
   grid: "#1d2a38",
   muted: "#8aa0b6",
+  quiescent: "#a78bfa",
   tooltipBg: "#15202d",
 };
 
@@ -50,6 +51,7 @@ export type ChartPoint = {
   v12_start: number | null;
   v12_end: number | null;
   v12_soc_start: number | null;
+  v12_quiescent_ma: number | null;
 };
 
 // Day-aligned tick marks (local midnights) spanning the data range, so the
@@ -229,10 +231,23 @@ export function SohTrend({ data }: { data: ChartPoint[] }) {
   );
 }
 
-export function V12Chart({ data, threshold }: { data: ChartPoint[]; threshold: number }) {
+// Combined 12V battery chart: terminal voltage at trip start (left axis) plus
+// quiescent/parasitic drain (right axis, mA) and 12V SoC (hidden axis, faint
+// reference). Quiescent is the better leading health signal, so it gets a
+// distinct colour and its own axis. V-at-end was dropped — during driving it's
+// mostly the DC-DC converter's output, not battery state, and just added noise.
+export function V12Chart({
+  data,
+  threshold,
+  quiescentThreshold,
+}: {
+  data: ChartPoint[];
+  threshold: number;
+  quiescentThreshold: number;
+}) {
   return (
-    <ResponsiveContainer width="100%" height={240}>
-      <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -8 }}>
+    <ResponsiveContainer width="100%" height={260}>
+      <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
         <CartesianGrid stroke={C.grid} strokeDasharray="3 3" />
         <XAxis {...timeXAxis(data)} />
         <YAxis
@@ -240,9 +255,20 @@ export function V12Chart({ data, threshold }: { data: ChartPoint[]; threshold: n
           yAxisId="v"
           domain={[(min: number) => Math.min(min - 0.5, threshold - 0.3), "auto"]}
           tickFormatter={(v: number) => v.toFixed(1)}
+          label={{ value: "Volts", angle: -90, position: "insideLeft", fill: C.muted, fontSize: 11 }}
+        />
+        <YAxis
+          {...axisProps}
+          yAxisId="ma"
+          orientation="right"
+          stroke={C.quiescent}
+          domain={[0, (max: number) => Math.max(max + 15, quiescentThreshold + 15)]}
+          tickFormatter={(v: number) => v.toFixed(0)}
+          label={{ value: "mA", angle: -90, position: "insideRight", fill: C.quiescent, fontSize: 11 }}
         />
         <YAxis {...axisProps} yAxisId="soc" orientation="right" domain={[0, 100]} hide />
         <Tooltip contentStyle={tooltipStyle} labelFormatter={tipLabel} />
+        <Legend wrapperStyle={legendStyle} />
         <ReferenceLine
           yAxisId="v"
           y={threshold}
@@ -250,16 +276,51 @@ export function V12Chart({ data, threshold }: { data: ChartPoint[]; threshold: n
           strokeDasharray="6 4"
           label={{ value: `${threshold} V`, fill: C.bad, fontSize: 11, position: "insideBottomRight" }}
         />
+        <ReferenceLine
+          yAxisId="ma"
+          y={quiescentThreshold}
+          stroke={C.warn}
+          strokeDasharray="6 4"
+          label={{ value: `${quiescentThreshold} mA`, fill: C.warn, fontSize: 11, position: "insideTopRight" }}
+        />
         <Line
           yAxisId="soc"
           type="monotone"
           dataKey="v12_soc_start"
           name="12V SoC %"
-          stroke={C.muted}
+          stroke={C.good}
           strokeWidth={1.5}
           strokeDasharray="4 3"
           dot={false}
           connectNulls
+        />
+        <Line
+          yAxisId="ma"
+          type="monotone"
+          dataKey="v12_quiescent_ma"
+          name="Quiescent drain (mA)"
+          stroke={C.quiescent}
+          strokeWidth={2}
+          connectNulls
+          dot={(props) => {
+            const { cx, cy, value, index } = props as {
+              cx?: number;
+              cy?: number;
+              value?: number;
+              index?: number;
+            };
+            if (cx == null || cy == null || value == null) return <g key={`q${index}`} />;
+            const high = value >= quiescentThreshold;
+            return (
+              <circle
+                key={`q${index}`}
+                cx={cx}
+                cy={cy}
+                r={high ? 5 : 3.5}
+                fill={high ? C.warn : C.quiescent}
+              />
+            );
+          }}
         />
         <Line
           yAxisId="v"
@@ -285,34 +346,6 @@ export function V12Chart({ data, threshold }: { data: ChartPoint[]; threshold: n
                 cy={cy}
                 r={low ? 5 : 3}
                 fill={low ? C.bad : C.accent}
-              />
-            );
-          }}
-        />
-        <Line
-          yAxisId="v"
-          type="monotone"
-          dataKey="v12_end"
-          name="V at end"
-          stroke={C.good}
-          strokeWidth={1.5}
-          connectNulls
-          dot={(props) => {
-            const { cx, cy, value, index } = props as {
-              cx?: number;
-              cy?: number;
-              value?: number;
-              index?: number;
-            };
-            if (cx == null || cy == null || value == null) return <g key={`e${index}`} />;
-            const low = value < threshold;
-            return (
-              <circle
-                key={`e${index}`}
-                cx={cx}
-                cy={cy}
-                r={low ? 5 : 3}
-                fill={low ? C.bad : C.good}
               />
             );
           }}

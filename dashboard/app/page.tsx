@@ -6,7 +6,13 @@ import {
   V12Chart,
   type ChartPoint,
 } from "@/components/charts";
-import { EPA_MI_PER_KWH, V12_LOW_THRESHOLD, loadData, type Trip } from "@/lib/db";
+import {
+  EPA_MI_PER_KWH,
+  V12_LOW_THRESHOLD,
+  V12_QUIESCENT_HIGH_MA,
+  loadData,
+  type Trip,
+} from "@/lib/db";
 
 export const dynamic = "force-dynamic"; // re-read trips.db on every page load
 
@@ -44,6 +50,7 @@ export default function Page() {
     v12_start: t.v12_start,
     v12_end: t.v12_end,
     v12_soc_start: t.v12_soc_start,
+    v12_quiescent_ma: t.v12_quiescent_ma,
   }));
 
   const monthlyData = monthly.map((m) => ({
@@ -60,6 +67,9 @@ export default function Page() {
   const latest = trips[0];
   const latestSoh = trips.find((t) => t.soh_pct != null)?.soh_pct;
   const latestQuiescent = trips.find((t) => t.v12_quiescent_ma != null)?.v12_quiescent_ma;
+  const highQuiescent = trips.filter(
+    (t) => t.v12_quiescent_ma != null && t.v12_quiescent_ma >= V12_QUIESCENT_HIGH_MA
+  );
   const latestAge = trips.find((t) => t.v12_age_days != null)?.v12_age_days;
 
   return (
@@ -127,7 +137,11 @@ export default function Page() {
       <section>
         <h2>12V battery</h2>
         <div className="panel">
-          <V12Chart data={points} threshold={V12_LOW_THRESHOLD} />
+          <V12Chart
+            data={points}
+            threshold={V12_LOW_THRESHOLD}
+            quiescentThreshold={V12_QUIESCENT_HIGH_MA}
+          />
           {lowV12.length === 0 ? (
             <div className="alert ok">
               All 12V readings at or above {V12_LOW_THRESHOLD} V
@@ -138,6 +152,15 @@ export default function Page() {
               {V12_LOW_THRESHOLD} V:{" "}
               {lowV12
                 .map((t) => `${t.trip_start.slice(0, 16)} (${t.v12_start ?? "?"}→${t.v12_end ?? "?"} V)`)
+                .join(", ")}
+            </div>
+          )}
+          {highQuiescent.length > 0 && (
+            <div className="alert bad">
+              {highQuiescent.length} reading{highQuiescent.length > 1 ? "s" : ""} at or
+              above {V12_QUIESCENT_HIGH_MA} mA:{" "}
+              {highQuiescent
+                .map((t) => `${t.trip_start.slice(0, 16)} (${t.v12_quiescent_ma} mA)`)
                 .join(", ")}
             </div>
           )}
