@@ -49,7 +49,11 @@ function minTire(t: Trip): number | null {
   return vals.length ? Math.min(...vals) : null;
 }
 
-const cols: Col[] = [
+// Per-trip efficiency vs the lifetime average, as a signed percentage.
+const deltaAvg = (t: Trip, avg: number | null) =>
+  t.mi_per_kwh != null && avg ? ((t.mi_per_kwh - avg) / avg) * 100 : null;
+
+const makeCols = (avg: number | null): Col[] => [
   { key: "trip_start", label: "Start" },
   { key: "duration_min", label: "Min", fmt: (v) => v.toFixed(0) },
   { key: "distance_mi", label: "Miles", fmt: (v) => v.toFixed(1) },
@@ -61,10 +65,16 @@ const cols: Col[] = [
   { key: "kwh_used", label: "kWh", fmt: (v) => v.toFixed(2) },
   { key: "mi_per_kwh", label: "mi/kWh", fmt: (v) => v.toFixed(2) },
   {
-    key: "efficiency_delta_pct",
-    label: "Δ EPA",
-    fmt: (v) => `${v > 0 ? "+" : ""}${v.toFixed(0)}%`,
-    cls: (v) => (v >= 0 ? "pos" : "neg"),
+    key: "efficiency_delta_avg",
+    label: "Δ avg",
+    render: (t) => {
+      const d = deltaAvg(t, avg);
+      if (d == null) return <span className="dim">—</span>;
+      return (
+        <span className={d >= 0 ? "pos" : "neg"}>{`${d > 0 ? "+" : ""}${d.toFixed(0)}%`}</span>
+      );
+    },
+    sortVal: (t) => deltaAvg(t, avg),
   },
   { key: "rate_usd_per_kwh", label: "¢/kWh", fmt: (v) => (v * 100).toFixed(1) },
   { key: "energy_cost_usd", label: "Cost", fmt: (v) => `$${v.toFixed(2)}` },
@@ -119,9 +129,11 @@ const cols: Col[] = [
   },
 ];
 
-export default function TripsTable({ trips }: { trips: Trip[] }) {
+export default function TripsTable({ trips, avg }: { trips: Trip[]; avg: number | null }) {
   const [sortKey, setSortKey] = useState<string>("trip_start");
   const [desc, setDesc] = useState(true);
+
+  const cols = useMemo(() => makeCols(avg), [avg]);
 
   const sorted = useMemo(() => {
     const col = cols.find((c) => c.key === sortKey);
@@ -138,7 +150,7 @@ export default function TripsTable({ trips }: { trips: Trip[] }) {
       return desc ? -cmp : cmp;
     });
     return copy;
-  }, [trips, sortKey, desc]);
+  }, [trips, sortKey, desc, cols]);
 
   function onSort(key: string) {
     if (key === sortKey) {

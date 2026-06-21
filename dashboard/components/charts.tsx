@@ -108,7 +108,7 @@ function withEfficiencyMA(data: ChartPoint[]) {
   });
 }
 
-export function EfficiencyTrend({ data, epa }: { data: ChartPoint[]; epa: number }) {
+export function EfficiencyTrend({ data, avg }: { data: ChartPoint[]; avg: number | null }) {
   return (
     <ResponsiveContainer width="100%" height={260}>
       <ComposedChart data={withEfficiencyMA(data)} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>
@@ -118,12 +118,14 @@ export function EfficiencyTrend({ data, epa }: { data: ChartPoint[]; epa: number
         <YAxis {...axisProps} domain={[0, (max: number) => Math.ceil(max)]} unit="" />
         <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(56,189,248,0.06)" }} />
         <Legend wrapperStyle={legendStyle} />
-        <ReferenceLine
-          y={epa}
-          stroke={C.warn}
-          strokeDasharray="6 4"
-          label={{ value: `EPA ${epa}`, fill: C.warn, fontSize: 11, position: "insideBottomRight" }}
-        />
+        {avg != null && (
+          <ReferenceLine
+            y={avg}
+            stroke={C.warn}
+            strokeDasharray="2 3"
+            label={{ value: `Avg ${avg.toFixed(2)}`, fill: C.warn, fontSize: 11, position: "insideBottomRight" }}
+          />
+        )}
         <Bar dataKey="mi_per_kwh" name="mi/kWh" fill={C.accent} fillOpacity={0.6} radius={[3, 3, 0, 0]} maxBarSize={26} />
         <Line
           type="monotone"
@@ -141,10 +143,10 @@ export function EfficiencyTrend({ data, epa }: { data: ChartPoint[]; epa: number
 
 export function MonthlyBars({
   data,
-  epa,
+  avg,
 }: {
   data: { month: string; mi_per_kwh: number; logged_miles: number; odo_miles: number | null }[];
-  epa: number;
+  avg: number | null;
 }) {
   return (
     <ResponsiveContainer width="100%" height={260}>
@@ -157,7 +159,9 @@ export function MonthlyBars({
         <YAxis yAxisId="eff" orientation="right" {...axisProps} domain={[0, "auto"]} />
         <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(56,189,248,0.06)" }} />
         <Legend wrapperStyle={legendStyle} />
-        <ReferenceLine yAxisId="eff" y={epa} stroke={C.warn} strokeDasharray="6 4" />
+        {avg != null && (
+          <ReferenceLine yAxisId="eff" y={avg} stroke={C.warn} strokeDasharray="2 3" />
+        )}
         <Bar yAxisId="mi" dataKey="odo_miles" name="Miles (odometer)" fill={C.accent} radius={[4, 4, 0, 0]} maxBarSize={40} />
         <Bar yAxisId="mi" dataKey="logged_miles" name="Miles (logged)" fill={C.muted} radius={[4, 4, 0, 0]} maxBarSize={40} />
         <Line

@@ -110,7 +110,7 @@ export default function Page() {
       <section>
         <h2>Efficiency trend</h2>
         <div className="panel">
-          <EfficiencyTrend data={points} epa={EPA_MI_PER_KWH} />
+          <EfficiencyTrend data={points} avg={summary.avgEfficiency} />
         </div>
       </section>
 
@@ -118,7 +118,7 @@ export default function Page() {
         <div>
           <h2>Monthly miles &amp; efficiency</h2>
           <div className="panel">
-            <MonthlyBars data={monthlyData} epa={EPA_MI_PER_KWH} />
+            <MonthlyBars data={monthlyData} avg={summary.avgEfficiency} />
           </div>
         </div>
         <div>
@@ -190,7 +190,7 @@ export default function Page() {
 
       <section>
         <h2>Trip history</h2>
-        <TripsTable trips={trips} />
+        <TripsTable trips={trips} avg={summary.avgEfficiency} />
       </section>
     </main>
   );
