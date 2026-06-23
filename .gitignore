@@ -18,6 +18,7 @@ node_modules/
 # Deployment/ops notes — contain LAN IP, SSH port, NAS username/layout
 DEPLOY.md
 MAINTENANCE.md
+dashboard/Makefile
 
 # Trip data — raw CSVs contain per-second GPS traces; never publish
 *.csv

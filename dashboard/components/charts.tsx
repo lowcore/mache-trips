@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Area,
   Bar,
   CartesianGrid,
   ComposedChart,
@@ -198,17 +199,23 @@ export function SohTrend({ data }: { data: ChartPoint[] }) {
           domain={["auto", "auto"]}
           tickFormatter={(v: number) => `${Math.round(v)}°`}
         />
-        {/* hidden, compressed so depth bars stay in the lower third behind the lines */}
-        <YAxis yAxisId="depth" hide domain={[0, (max: number) => max * 3]} />
+        {/* hidden, compressed so depth bars stay in the lower two-thirds behind the lines */}
+        <YAxis yAxisId="depth" hide domain={[0, (max: number) => max * 1.2]} />
         <Tooltip contentStyle={tooltipStyle} labelFormatter={tipLabel} />
         <Legend wrapperStyle={legendStyle} />
-        <Bar
+        {/* filled area rather than bars: bars collapse to ~0px width on the
+            time-scaled axis, whereas an area stays visible and time-aligned */}
+        <Area
           yAxisId="depth"
+          type="stepAfter"
           dataKey="soc_depth"
           name="SoC used %"
-          fill={C.accent}
-          fillOpacity={0.4}
-          maxBarSize={28}
+          stroke={C.quiescent}
+          strokeWidth={1.5}
+          fill={C.quiescent}
+          fillOpacity={0.3}
+          dot={false}
+          connectNulls={false}
         />
         <Line
           yAxisId="soh"
