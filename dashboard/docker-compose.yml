@@ -1,5 +1,11 @@
-# DSM 6.2.4 ships docker-compose 1.x — stick to the v2.4 file format.
-version: "2.4"
+# Runtime compose file, copied to ~/srv/mache-trips/docker-compose.yml by
+# `make srv-config`, which `make deploy` runs. THIS copy is authoritative.
+#
+# Migrated off the Synology 2026-07-28. Gone: the `version:` pin (that was for
+# docker-compose 1.x) and `user: "1026:100"` / `group_add: ["101"]`, which
+# existed because the image's default `node` user (uid 1000) had no matching
+# DSM account and hit SQLITE_CANTOPEN on the Synology share. Docker Desktop has
+# no share ACLs to satisfy.
 
 services:
   mache-dashboard:
@@ -7,20 +13,20 @@ services:
     image: mache-dashboard:latest
     container_name: mache-dashboard
     restart: always
-    # Run as the NAS user "dave" (1026:100) so Synology ACLs on the mounted
-    # share resolve to a known identity; the image's default "node" user
-    # (uid 1000) has no matching DSM account and gets SQLITE_CANTOPEN.
-    # The share's ACL grants access via the administrators group (gid 101),
-    # so the container needs that supplementary group too.
-    user: "1026:100"
-    group_add:
-      - "101"
     ports:
       - "3000:3000"
-    # Mount the whole share read-only rather than the single trips.db file:
+    # Mount the whole directory read-only rather than the single trips.db file:
     # a file bind breaks if the inode is ever replaced, and a directory mount
     # also covers any -wal/-shm sidecar files SQLite might create.
+    #
+    # This is a LOCAL directory now, not the NAS share. watcher.py on this same
+    # Mac is the writer, so writer and reader finally share a host. (The DB is
+    # in `delete` journal mode, not WAL — which is why the old cross-host
+    # arrangement worked at all. But SQLite over SMB leans on network file
+    # locking, and a local path removes that dependency; WAL is also safely
+    # available here now if it's ever wanted.)
     volumes:
-      - /volume1/mache:/data:ro
+      - ./data:/data:ro
     environment:
       - TRIPS_DB=/data/trips.db
+      - TZ=America/Detroit

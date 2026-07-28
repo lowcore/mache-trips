@@ -6,13 +6,28 @@ Car Scanner exports long-format CSV: one row per PID reading.
 SECONDS is seconds since local midnight; the trip date comes from the
 filename ("YYYY-MM-DD HH-MM-SS.csv").
 
+Outputs are split across two locations, deliberately:
+
+  --base    archives: <base>/raw/*.csv and <base>/processed/*.json. These are
+            write-once and never read by the dashboard, so they live on the NAS
+            share where the bulk storage is.
+  --db-dir  trips.db. This one must sit on a real local filesystem, NOT on the
+            SMB share, because SQLite's WAL mode does not work over a network
+            filesystem — every writer has to be on the same physical host as
+            the file. Before 2026-07-28 this script wrote trips.db onto
+            /Volumes/mache while the dashboard read it from the NAS side, which
+            violated that rule; the dashboard now runs on this same Mac and
+            reads the local copy.
+
 Usage:
-  python3 process_trip.py "/path/to/2026-06-09 17-00-58.csv" [--base /Volumes/mache] [--dry-run]
+  python3 process_trip.py "/path/to/2026-06-09 17-00-58.csv" \
+      [--base /Volumes/mache] [--db-dir ~/srv/mache-trips/data] [--dry-run]
 """
 
 import argparse
 import csv
 import json
+import os
 import re
 import shutil
 import sqlite3
@@ -25,6 +40,8 @@ EPA_MI_PER_KWH = 2.6          # EPA combined for 2023 Mach-E AWD Extended Range
 COST_PER_KWH = 0.2            # fallback $/kWh if rates.json is missing
 RATES_FILE = Path(__file__).resolve().parent / "rates.json"
 DEFAULT_BASE = "/Volumes/mache"
+DEFAULT_DB_DIR = os.environ.get(
+    "MACHE_DB_DIR", str(Path.home() / "srv/mache-trips/data"))
 MAX_GAP_S = 15                # ignore power-integration intervals longer than this
 
 FILENAME_RE = re.compile(r"(\d{4}-\d{2}-\d{2})[ _](\d{2})-(\d{2})-(\d{2})")
@@ -350,18 +367,22 @@ def ensure_schema(con):
             con.execute(f"ALTER TABLE trips ADD COLUMN {col} {coltype}")
 
 
-def write_outputs(metrics, csv_path, base):
+def write_outputs(metrics, csv_path, base, db_dir=None):
     base = Path(base)
+    # trips.db lives on local disk, not under base -- see the module docstring
+    # (SQLite WAL requires the writer and the file on the same host).
+    db_dir = Path(db_dir) if db_dir else Path(DEFAULT_DB_DIR)
     processed_dir = base / "processed"
     raw_dir = base / "raw"
     processed_dir.mkdir(parents=True, exist_ok=True)
     raw_dir.mkdir(parents=True, exist_ok=True)
+    db_dir.mkdir(parents=True, exist_ok=True)
 
     stamp = metrics["trip_start"].replace("-", "").replace(":", "").replace(" ", "_")
     json_path = processed_dir / f"trip_{stamp}.json"
     json_path.write_text(json.dumps(metrics, indent=2) + "\n")
 
-    db_path = base / "trips.db"
+    db_path = db_dir / "trips.db"
     con = sqlite3.connect(db_path)
     try:
         ensure_schema(con)
@@ -394,7 +415,10 @@ def main():
     ap = argparse.ArgumentParser(description="Process a Car Scanner trip CSV")
     ap.add_argument("csv_file", help="Car Scanner CSV export")
     ap.add_argument("--base", default=DEFAULT_BASE,
-                    help=f"Output base dir containing raw/, processed/, trips.db (default {DEFAULT_BASE})")
+                    help=f"Archive dir containing raw/ and processed/ (default {DEFAULT_BASE})")
+    ap.add_argument("--db-dir", default=DEFAULT_DB_DIR,
+                    help=f"Local dir holding trips.db; must NOT be a network "
+                         f"share (SQLite WAL) (default {DEFAULT_DB_DIR})")
     ap.add_argument("--dry-run", action="store_true",
                     help="Print metrics only; write nothing")
     args = ap.parse_args()
@@ -432,7 +456,7 @@ def main():
     if args.dry_run:
         return
 
-    json_path, db_path, inserted = write_outputs(metrics, csv_path, args.base)
+    json_path, db_path, inserted = write_outputs(metrics, csv_path, args.base, args.db_dir)
     print(f"\nwrote {json_path}")
     print(f"{'inserted into' if inserted else 'updated existing row in'} {db_path}")
     print(f"archived CSV to {Path(args.base) / 'raw' / csv_path.name}")
