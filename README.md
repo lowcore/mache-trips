@@ -85,3 +85,11 @@ NAS deployment (rsync + docker-compose + Cloudflare Tunnel) is documented in
   `trip_*.json`) is gitignored — this repo holds only code.
 - Constants worth knowing: EPA baseline 2.6 mi/kWh, 12V low-voltage alert at
   12.2 V, tire-pressure flags at <39 / >48 psi (42 psi placard).
+
+## Operational docs
+
+`DEPLOY.md` and `MAINTENANCE.md` are **not in this repo**. They contain LAN
+addresses, the NAS SSH port, and share layout, so they live in iCloud at
+`~/Library/Mobile Documents/com~apple~CloudDocs/dev/ops/mache-trips/` — which
+syncs to both Macs without any of it reaching GitHub. The house-wide
+`ARCHITECTURE.md` sits alongside them in `dev/`.
