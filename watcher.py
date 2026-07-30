@@ -40,7 +40,13 @@ from datetime import datetime
 from pathlib import Path
 
 WATCH_DIR = Path.home() / "Library/Mobile Documents/com~apple~CloudDocs/mache"
+# Archives (raw/, processed/) live on the NAS share; trips.db does NOT.
+# SQLite WAL mode requires the writer and the DB file on the same physical
+# host, and this watcher is the writer. Before 2026-07-28 trips.db sat on the
+# SMB share while the dashboard read it from the NAS -- same file, two hosts.
+# The dashboard now runs on this Mac and reads DB_DIR directly.
 BASE_DIR = Path("/Volumes/mache")
+DB_DIR = Path(os.environ.get("MACHE_DB_DIR", Path.home() / "srv/mache-trips/data"))
 LOG_DIR = Path(os.environ.get("MACHE_LOG_DIR", Path.home() / "logs"))
 LOG_FILE = LOG_DIR / "mache_watcher.log"
 PROCESS_SCRIPT = Path(__file__).resolve().parent / "process_trip.py"
@@ -129,8 +135,9 @@ def ensure_local(path, timeout=120):
     return False
 
 
-def run_process_trip(csv_path, base):
-    cmd = [sys.executable, str(PROCESS_SCRIPT), str(csv_path), "--base", str(base)]
+def run_process_trip(csv_path, base, db_dir):
+    cmd = [sys.executable, str(PROCESS_SCRIPT), str(csv_path),
+           "--base", str(base), "--db-dir", str(db_dir)]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
     except subprocess.TimeoutExpired:
@@ -165,7 +172,7 @@ def quarantine(path, watch_dir):
     log.warning("moved to %s", dest)
 
 
-def process_file(path, watch_dir, base):
+def process_file(path, watch_dir, base, db_dir):
     """Handle one .zip or .csv: process, then delete (or quarantine on failure)."""
     with _work_lock:
         if not path.is_file():  # already handled by the other thread
@@ -191,7 +198,7 @@ def process_file(path, watch_dir, base):
                         with tempfile.TemporaryDirectory() as tmp:
                             for member in members:
                                 extracted = Path(zf.extract(member, tmp))
-                                if run_process_trip(extracted, base):
+                                if run_process_trip(extracted, base, db_dir):
                                     succeeded += 1
                                 else:
                                     failed += 1
@@ -201,7 +208,7 @@ def process_file(path, watch_dir, base):
                 if not members:
                     log.warning("no CSVs inside %s", name)
             else:
-                if run_process_trip(path, base):
+                if run_process_trip(path, base, db_dir):
                     succeeded += 1
                 else:
                     failed += 1
@@ -229,7 +236,7 @@ def is_candidate(path):
             and path.suffix.lower() in (".zip", ".csv"))
 
 
-def scan(watch_dir, base):
+def scan(watch_dir, base, db_dir):
     """Process every candidate file present; trigger downloads for placeholders."""
     if not watch_dir.is_dir():
         log.error("watch dir missing: %s", watch_dir)
@@ -240,10 +247,10 @@ def scan(watch_dir, base):
             request_icloud_download(placeholder)
     for path in sorted(watch_dir.iterdir()):
         if is_candidate(path):
-            process_file(path, watch_dir, base)
+            process_file(path, watch_dir, base, db_dir)
 
 
-def watch(watch_dir, base):
+def watch(watch_dir, base, db_dir):
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers import Observer
 
@@ -260,7 +267,7 @@ def watch(watch_dir, base):
                     request_icloud_download(path)
                 return
             if is_candidate(path):
-                process_file(path, watch_dir, base)
+                process_file(path, watch_dir, base, db_dir)
 
         def on_created(self, event):
             if not event.is_directory:
@@ -277,7 +284,7 @@ def watch(watch_dir, base):
     try:
         while True:
             time.sleep(RESCAN_INTERVAL)
-            scan(watch_dir, base)
+            scan(watch_dir, base, db_dir)
     except KeyboardInterrupt:
         log.info("stopping")
     finally:
@@ -288,19 +295,23 @@ def watch(watch_dir, base):
 def main():
     ap = argparse.ArgumentParser(description="Watch for Car Scanner exports")
     ap.add_argument("--watch-dir", default=str(WATCH_DIR))
-    ap.add_argument("--base", default=str(BASE_DIR))
+    ap.add_argument("--base", default=str(BASE_DIR),
+                    help="Archive dir (raw/, processed/) -- the NAS share")
+    ap.add_argument("--db-dir", default=str(DB_DIR),
+                    help="Local dir holding trips.db; never a network share")
     ap.add_argument("--once", action="store_true",
                     help="scan existing files once and exit (no watchdog needed)")
     args = ap.parse_args()
 
     setup_logging()
     watch_dir, base = Path(args.watch_dir), Path(args.base)
-    log.info("startup: watch=%s base=%s", watch_dir, base)
+    db_dir = Path(args.db_dir)
+    log.info("startup: watch=%s base=%s db=%s", watch_dir, base, db_dir)
 
-    scan(watch_dir, base)
+    scan(watch_dir, base, db_dir)
     if args.once:
         return
-    watch(watch_dir, base)
+    watch(watch_dir, base, db_dir)
 
 
 if __name__ == "__main__":
