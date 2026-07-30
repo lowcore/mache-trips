@@ -41,7 +41,7 @@ Car Scanner app ──export──> iCloud Drive folder
 | `watcher.py` | iCloud-folder watcher (needs `pip install watchdog` for live mode). |
 | `rates.json` | Electricity $/kWh history; newest entry on/before the trip date applies. |
 | `com.dave.machetrips.plist` | launchd agent that keeps `watcher.py` running. |
-| `dashboard/` | Next.js 15 + better-sqlite3 + Recharts, Dockerized for a Synology NAS. |
+| `dashboard/` | Next.js 15 + better-sqlite3 + Recharts, Dockerized for the Mac Mini. |
 
 ## Usage
 
