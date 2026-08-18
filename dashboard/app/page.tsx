@@ -7,7 +7,11 @@ import {
   type ChartPoint,
 } from "@/components/charts";
 import {
+  EFFICIENCY_TREND_TRIP_WINDOW,
   EPA_MI_PER_KWH,
+  MONTHLY_BARS_MONTH_WINDOW,
+  SOH_TREND_DAYS,
+  V12_CHART_DAYS,
   V12_LOW_THRESHOLD,
   V12_QUIESCENT_HIGH_MA,
   loadData,
@@ -53,22 +57,38 @@ export default function Page() {
     v12_quiescent_ma: t.v12_quiescent_ma,
   }));
 
-  const monthlyData = monthly.map((m) => ({
-    ...m,
-    mi_per_kwh: Number(m.mi_per_kwh.toFixed(2)),
-  }));
+  const monthlyData = monthly
+    .map((m) => ({
+      ...m,
+      mi_per_kwh: Number(m.mi_per_kwh.toFixed(2)),
+    }))
+    .slice(-MONTHLY_BARS_MONTH_WINDOW);
+
+  // Windowed slices so per-trip charts don't grow unbounded as trips accumulate.
+  const now = Date.now();
+  const sohCutoff = now - SOH_TREND_DAYS * 86_400_000;
+  const v12Cutoff = now - V12_CHART_DAYS * 86_400_000;
+  const tsOf = (trip_start: string) => new Date(trip_start.replace(" ", "T")).getTime();
+
+  const effPoints = points.slice(-EFFICIENCY_TREND_TRIP_WINDOW);
+  const sohPoints = points.filter((p) => p.ts >= sohCutoff);
+  const v12Points = points.filter((p) => p.ts >= v12Cutoff);
 
   const lowV12 = trips.filter(
     (t) =>
-      (t.v12_start != null && t.v12_start < V12_LOW_THRESHOLD) ||
-      (t.v12_end != null && t.v12_end < V12_LOW_THRESHOLD)
+      tsOf(t.trip_start) >= v12Cutoff &&
+      ((t.v12_start != null && t.v12_start < V12_LOW_THRESHOLD) ||
+        (t.v12_end != null && t.v12_end < V12_LOW_THRESHOLD))
   );
 
   const latest = trips[0];
   const latestSoh = trips.find((t) => t.soh_pct != null)?.soh_pct;
   const latestQuiescent = trips.find((t) => t.v12_quiescent_ma != null)?.v12_quiescent_ma;
   const highQuiescent = trips.filter(
-    (t) => t.v12_quiescent_ma != null && t.v12_quiescent_ma >= V12_QUIESCENT_HIGH_MA
+    (t) =>
+      tsOf(t.trip_start) >= v12Cutoff &&
+      t.v12_quiescent_ma != null &&
+      t.v12_quiescent_ma >= V12_QUIESCENT_HIGH_MA
   );
   const latestAge = trips.find((t) => t.v12_age_days != null)?.v12_age_days;
 
@@ -109,22 +129,25 @@ export default function Page() {
 
       <section>
         <h2>Efficiency trend</h2>
+        <div className="chart-note">last {EFFICIENCY_TREND_TRIP_WINDOW} trips</div>
         <div className="panel">
-          <EfficiencyTrend data={points} avg={summary.avgEfficiency} />
+          <EfficiencyTrend data={effPoints} avg={summary.avgEfficiency} />
         </div>
       </section>
 
       <section className="grid-2">
         <div>
           <h2>Monthly miles &amp; efficiency</h2>
+          <div className="chart-note">trailing {MONTHLY_BARS_MONTH_WINDOW} months</div>
           <div className="panel">
             <MonthlyBars data={monthlyData} avg={summary.avgEfficiency} />
           </div>
         </div>
         <div>
           <h2>Battery health &amp; stress</h2>
+          <div className="chart-note">trailing {Math.round(SOH_TREND_DAYS / 30)} months</div>
           <div className="panel">
-            <SohTrend data={points} />
+            <SohTrend data={sohPoints} />
             <div className="statline">
               <span>
                 Current SoH <b>{latestSoh != null ? `${latestSoh}%` : "—"}</b>
@@ -136,20 +159,21 @@ export default function Page() {
 
       <section>
         <h2>12V battery</h2>
+        <div className="chart-note">trailing {V12_CHART_DAYS} days</div>
         <div className="panel">
           <V12Chart
-            data={points}
+            data={v12Points}
             threshold={V12_LOW_THRESHOLD}
             quiescentThreshold={V12_QUIESCENT_HIGH_MA}
           />
           {lowV12.length === 0 ? (
             <div className="alert ok">
-              All 12V readings at or above {V12_LOW_THRESHOLD} V
+              All 12V readings at or above {V12_LOW_THRESHOLD} V (last {V12_CHART_DAYS} days)
             </div>
           ) : (
             <div className="alert bad">
               {lowV12.length} trip{lowV12.length > 1 ? "s" : ""} with readings below{" "}
-              {V12_LOW_THRESHOLD} V:{" "}
+              {V12_LOW_THRESHOLD} V in the last {V12_CHART_DAYS} days:{" "}
               {lowV12
                 .map((t) => `${t.trip_start.slice(0, 16)} (${t.v12_start ?? "?"}→${t.v12_end ?? "?"} V)`)
                 .join(", ")}
@@ -158,7 +182,7 @@ export default function Page() {
           {highQuiescent.length > 0 && (
             <div className="alert bad">
               {highQuiescent.length} reading{highQuiescent.length > 1 ? "s" : ""} at or
-              above {V12_QUIESCENT_HIGH_MA} mA:{" "}
+              above {V12_QUIESCENT_HIGH_MA} mA in the last {V12_CHART_DAYS} days:{" "}
               {highQuiescent
                 .map((t) => `${t.trip_start.slice(0, 16)} (${t.v12_quiescent_ma} mA)`)
                 .join(", ")}

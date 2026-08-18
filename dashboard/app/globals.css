@@ -96,6 +96,12 @@ h2 {
   margin-top: 2px;
 }
 
+.chart-note {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin: -8px 0 10px;
+}
+
 .panel {
   background: var(--card);
   border: 1px solid var(--border);

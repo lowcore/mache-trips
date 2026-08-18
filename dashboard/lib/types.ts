@@ -13,6 +13,13 @@ export const V12_QUIESCENT_HIGH_MA = 85;
 export const TIRE_LOW_PSI = 39;
 export const TIRE_HIGH_PSI = 48;
 
+// Chart windowing — without these, every per-trip chart grows unbounded as
+// trips accumulate (bars/points shrink toward invisibility over months).
+export const EFFICIENCY_TREND_TRIP_WINDOW = 60; // trailing trips; bars are per-trip with no time consolidation
+export const SOH_TREND_DAYS = 365; // ~1yr: enough to see a seasonal HVB temp cycle; SoH itself barely moves trip to trip
+export const V12_CHART_DAYS = 90; // leading-indicator chart — older readings add little diagnostic value
+export const MONTHLY_BARS_MONTH_WINDOW = 24; // trailing 2yr; MonthlyBars is already 1 bar/month so this rarely bites
+
 export type Trip = {
   id: number;
   source_file: string;
