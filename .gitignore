@@ -26,3 +26,6 @@ MAINTENANCE.md
 *.db
 exported_records*.zip
 trip_*.json
+
+# architecture
+ARCHITECTURE.md
