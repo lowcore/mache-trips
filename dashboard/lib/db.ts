@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
-import type { Monthly, Summary, Trip } from "./types";
+import type { Monthly, OdometerState, Summary, Trip } from "./types";
+import { PACE_MIN_SPAN_DAYS, PACE_WINDOW_DAYS } from "./types";
 
 export * from "./types";
 
@@ -49,6 +50,69 @@ function monthlyOdoMiles(trips: Trip[]): Map<string, number | null> {
     prevEnd = end;
   }
   return result;
+}
+
+/**
+ * Current odometer and how fast miles are accruing — everything the
+ * maintenance page needs, without loading every trip row.
+ *
+ * Odometer PIDs are polled opportunistically, so any given trip may have a
+ * start reading, an end reading, both or neither. Take the max across both
+ * columns rather than trusting odometer_end: a trip whose end reading was
+ * missed would otherwise drag the "current" reading backwards. The COALESCE
+ * inside MAX() is load-bearing — SQLite's scalar MAX() returns NULL if ANY
+ * argument is NULL, so MAX(end, start) would blank out exactly the
+ * half-populated rows this is meant to rescue.
+ *
+ * Pace is a plain (last - first) / days over the trailing window rather than
+ * an average of per-trip distances, so unlogged driving still counts — the
+ * odometer sees every mile, Car Scanner only sees the trips it recorded.
+ */
+export function loadOdometerState(): OdometerState {
+  const db = new Database(DB_PATH, { readonly: true, fileMustExist: true });
+  try {
+    const latest = db
+      .prepare(
+        `SELECT trip_start, MAX(COALESCE(odometer_end, 0), COALESCE(odometer_start, 0)) AS odo
+         FROM trips
+         WHERE odometer_end IS NOT NULL OR odometer_start IS NOT NULL
+         ORDER BY odo DESC
+         LIMIT 1`
+      )
+      .get() as { trip_start: string; odo: number } | undefined;
+
+    if (!latest) return { odometer: null, readingAt: null, milesPerDay: null };
+
+    // Oldest reading still inside the pace window, to measure the span from.
+    const oldest = db
+      .prepare(
+        `SELECT trip_start, MAX(COALESCE(odometer_end, 0), COALESCE(odometer_start, 0)) AS odo
+         FROM trips
+         WHERE (odometer_end IS NOT NULL OR odometer_start IS NOT NULL)
+           AND julianday(?) - julianday(trip_start) <= ?
+         ORDER BY trip_start ASC
+         LIMIT 1`
+      )
+      .get(latest.trip_start, PACE_WINDOW_DAYS) as
+      | { trip_start: string; odo: number }
+      | undefined;
+
+    let milesPerDay: number | null = null;
+    if (oldest) {
+      const spanDays =
+        (Date.parse(latest.trip_start.replace(" ", "T")) -
+          Date.parse(oldest.trip_start.replace(" ", "T"))) /
+        86_400_000;
+      const miles = latest.odo - oldest.odo;
+      if (spanDays >= PACE_MIN_SPAN_DAYS && miles > 0) {
+        milesPerDay = miles / spanDays;
+      }
+    }
+
+    return { odometer: latest.odo, readingAt: latest.trip_start, milesPerDay };
+  } finally {
+    db.close();
+  }
 }
 
 export function loadData(): { trips: Trip[]; monthly: Monthly[]; summary: Summary } {

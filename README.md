@@ -31,7 +31,8 @@ Car Scanner app ──export──> iCloud Drive folder
    archives the raw CSV, writes a JSON summary, and upserts a row into
    `trips.db` (keyed on source filename, so re-imports are harmless).
 4. The dashboard reads `trips.db` read-only and renders summary cards,
-   efficiency/SoH/12V-battery charts, and a sortable trip table.
+   efficiency/SoH/12V-battery charts, and a sortable trip table. A second
+   page, `/maintenance`, projects service intervals off the current odometer.
 
 ## Components
 
@@ -42,6 +43,7 @@ Car Scanner app ──export──> iCloud Drive folder
 | `rates.json` | Electricity $/kWh history; newest entry on/before the trip date applies. |
 | `com.dave.machetrips.plist` | launchd agent that keeps `watcher.py` running. |
 | `dashboard/` | Next.js 15 + better-sqlite3 + Recharts, Dockerized for the Mac Mini. |
+| `dashboard/lib/maintenance.ts` | Static service schedule + part numbers behind `/maintenance`. |
 
 ## Usage
 
@@ -75,6 +77,29 @@ TRIPS_DB=/path/to/trips.db npm run dev
 
 NAS deployment (rsync + docker-compose + Cloudflare Tunnel) is documented in
 `DEPLOY.md`, which is gitignored because it contains LAN details.
+
+## Maintenance page
+
+`/maintenance` turns the current odometer (max reading in `trips.db`) into a
+"what's next" list, and carries the OEM part number for anything orderable so
+a DIY job can be shopped for without hunting a catalog. Due dates are
+projected from the trailing-90-day driving pace.
+
+Two things it deliberately does not do:
+
+- **No service history.** Nothing records what has actually been done, so
+  "next due" is only the next interval boundary ahead of the odometer — it can
+  never show an item as overdue. Adding history means a writable store; the
+  container's data mount is read-only today.
+- **No time-based tracking.** Brake fluid and coolant run on a clock, not a
+  trip meter, and nothing in `trips.db` records the in-service date. They're
+  listed with their intervals but excluded from the projections.
+
+Part numbers are marked `confirmed` (agreed across sources including a Ford
+dealer catalog) or `verify` (corroborated, but forums/retailers only) and each
+links to a search. Ford's own PDF at `vdm.ford.com` 404s and
+`fordservicecontent.com` refuses automated fetches, so intervals came from
+corroborated secondary sources — FordPass stays authoritative for warranty.
 
 ## Notes
 

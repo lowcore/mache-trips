@@ -157,7 +157,7 @@ export default function Page() {
         </div>
       </section>
 
-      <section>
+      <section id="v12">
         <h2>12V battery</h2>
         <div className="chart-note">trailing {V12_CHART_DAYS} days</div>
         <div className="panel">

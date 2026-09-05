@@ -20,6 +20,15 @@ export const SOH_TREND_DAYS = 365; // ~1yr: enough to see a seasonal HVB temp cy
 export const V12_CHART_DAYS = 90; // leading-indicator chart — older readings add little diagnostic value
 export const MONTHLY_BARS_MONTH_WINDOW = 24; // trailing 2yr; MonthlyBars is already 1 bar/month so this rarely bites
 
+// Maintenance page: trailing window used to estimate how fast miles accrue, for
+// projecting a due *date* from a due *mileage*. 90 days is long enough to ride
+// out a vacation or a week off the road, short enough to track a real change in
+// how much the car is being driven.
+export const PACE_WINDOW_DAYS = 90;
+// Below this many days between the window's first and last odometer reading,
+// the pace estimate is too noisy to divide by — report no ETA instead.
+export const PACE_MIN_SPAN_DAYS = 14;
+
 export type Trip = {
   id: number;
   source_file: string;
@@ -63,6 +72,15 @@ export type Monthly = {
   avg_ambient_f: number | null;
   logged_miles: number; // sum of per-trip distance_mi (logged drives only)
   odo_miles: number | null; // odometer delta across the month (all driving); null if no readings
+};
+
+export type OdometerState = {
+  /** Highest odometer reading seen, across trip starts and ends. */
+  odometer: number | null;
+  /** Timestamp of the trip that reading came from. */
+  readingAt: string | null;
+  /** Recent driving pace; null when there aren't enough readings to be useful. */
+  milesPerDay: number | null;
 };
 
 export type Summary = {
