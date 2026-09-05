@@ -10,6 +10,12 @@
 //   "verify"    — plausible and corroborated, but only from forums/retailers,
 //                 or the naming varies between sources. Shown muted, with the
 //                 caveat visible in the UI.
+// The `notes` prose carries NO such marking, and that is where this file has
+// actually been wrong: it originally claimed the cabin filter was not behind
+// the glovebox (it is) and that the car has no rear wiper (it does). Both were
+// asserted from weak sources. Treat notes as the least reliable thing here and
+// correct them against the car, not against a search result.
+//
 // Ford's own maintenance PDF (vdm.ford.com) 404s and fordservicecontent.com
 // would not serve, so intervals below come from corroborated secondary
 // sources. Treat this page as a shopping aid, not as the warranty schedule:
@@ -81,9 +87,9 @@ export const SCHEDULE: MaintenanceItem[] = [
     diy: "easy",
     intervalMi: 20_000,
     notes:
-      "Straightforward DIY, but the Mach-E's filter is not behind the glovebox the " +
-      "way most Fords are — worth reading a how-to before you start. The premium " +
-      "carbon version is a direct swap if you want odor filtering.",
+      "Behind the glovebox, and one of the easiest jobs on the car — drop the " +
+      "glovebox and the housing is right there, no tools beyond a screwdriver. " +
+      "The premium carbon version is a direct swap if you want odor filtering.",
     parts: [
       {
         label: "Filter (standard)",
@@ -145,20 +151,30 @@ export const SCHEDULE: MaintenanceItem[] = [
     diy: "easy",
     intervalMi: null,
     notes:
-      "Replaced on condition, typically annually. Ordered by size rather than part " +
-      "number. The Mach-E has no rear wiper, so ignore the three-blade kits sold for it.",
+      "Replaced on condition, typically annually. Three blades: two front plus the " +
+      "rear. Order by size — the sizes are solid, but sources disagree on which " +
+      "Motorcraft number is the driver blade (one lists it as 22\" rather than " +
+      "24\"), so check the length on the number before buying. Owners report " +
+      "longer aftermarket rear blades (Trico 15-G, Bosch A401H) fit and clear more " +
+      "glass than the stock 12\".",
     parts: [
       {
         label: "Driver side",
-        number: '24"',
-        confidence: "confirmed",
-        via: "Agreed across wiper-fitment catalogs (Otto, WindshieldWipers, Windy)",
+        number: '24" — Motorcraft WW-2432-A',
+        confidence: "verify",
+        via: "Size agreed across fitment catalogs (Otto, WindshieldWipers, Windy); part number from Ford OEM resellers, and one aggregator calls the driver blade 22\"",
       },
       {
         label: "Passenger side",
-        number: '20"',
+        number: '20" — Motorcraft WW-2052-A',
+        confidence: "verify",
+        via: "Size agreed across fitment catalogs; part number from Ford OEM resellers only",
+      },
+      {
+        label: "Rear",
+        number: '12" — Motorcraft WW1207A',
         confidence: "confirmed",
-        via: "Agreed across wiper-fitment catalogs (Otto, WindshieldWipers, Windy)",
+        via: "ford.com product page: Motorcraft 12-inch rear wiper blade, Mustang Mach-E",
       },
     ],
   },
