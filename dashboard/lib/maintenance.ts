@@ -205,10 +205,12 @@ export const SCHEDULE: MaintenanceItem[] = [
     diy: "moderate",
     intervalMi: null,
     notes:
-      "Replaced on condition, not mileage — and you already have better data on this " +
-      "one than a schedule could give you. The trips page tracks its age, state of " +
-      "charge and quiescent drain; a sustained rise in drain is the leading sign it " +
-      "or a module is on the way out.",
+      "Replaced on condition, not mileage. The trips page tracks its age and state of " +
+      "charge; a 12V SoC at trip start that keeps sliding over months while drain stays " +
+      "normal points to a weakening battery. Confirm with a load/conductance test before " +
+      "replacing. Quiescent drain is a different signal: a sustained rise means a module " +
+      "isn't sleeping and will flatten any battery, new or old — find the load, don't " +
+      "swap the battery.",
     parts: [
       {
         label: "AGM battery",
