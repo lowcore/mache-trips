@@ -12,7 +12,6 @@ import {
   MONTHLY_BARS_MONTH_WINDOW,
   SOH_TREND_DAYS,
   V12_CHART_DAYS,
-  V12_LOW_THRESHOLD,
   V12_QUIESCENT_HIGH_MA,
   loadData,
   type Trip,
@@ -51,8 +50,6 @@ export default function Page() {
       t.soc_start_pct != null && t.soc_end_pct != null
         ? Number((t.soc_start_pct - t.soc_end_pct).toFixed(1))
         : null,
-    v12_start: t.v12_start,
-    v12_end: t.v12_end,
     v12_soc_start: t.v12_soc_start,
     v12_quiescent_ma: t.v12_quiescent_ma,
   }));
@@ -73,13 +70,6 @@ export default function Page() {
   const effPoints = points.slice(-EFFICIENCY_TREND_TRIP_WINDOW);
   const sohPoints = points.filter((p) => p.ts >= sohCutoff);
   const v12Points = points.filter((p) => p.ts >= v12Cutoff);
-
-  const lowV12 = trips.filter(
-    (t) =>
-      tsOf(t.trip_start) >= v12Cutoff &&
-      ((t.v12_start != null && t.v12_start < V12_LOW_THRESHOLD) ||
-        (t.v12_end != null && t.v12_end < V12_LOW_THRESHOLD))
-  );
 
   const latest = trips[0];
   const latestSoh = trips.find((t) => t.soh_pct != null)?.soh_pct;
@@ -163,22 +153,8 @@ export default function Page() {
         <div className="panel">
           <V12Chart
             data={v12Points}
-            threshold={V12_LOW_THRESHOLD}
             quiescentThreshold={V12_QUIESCENT_HIGH_MA}
           />
-          {lowV12.length === 0 ? (
-            <div className="alert ok">
-              All 12V readings at or above {V12_LOW_THRESHOLD} V (last {V12_CHART_DAYS} days)
-            </div>
-          ) : (
-            <div className="alert bad">
-              {lowV12.length} trip{lowV12.length > 1 ? "s" : ""} with readings below{" "}
-              {V12_LOW_THRESHOLD} V in the last {V12_CHART_DAYS} days:{" "}
-              {lowV12
-                .map((t) => `${t.trip_start.slice(0, 16)} (${t.v12_start ?? "?"}→${t.v12_end ?? "?"} V)`)
-                .join(", ")}
-            </div>
-          )}
           {highQuiescent.length > 0 && (
             <div className="alert bad">
               {highQuiescent.length} reading{highQuiescent.length > 1 ? "s" : ""} at or

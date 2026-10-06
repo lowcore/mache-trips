@@ -2,7 +2,6 @@
 // Keep all Node-only code (better-sqlite3) in lib/db.ts.
 
 export const EPA_MI_PER_KWH = 2.6;
-export const V12_LOW_THRESHOLD = 12.2;
 // Parasitic/standby draw the IBS reports after the car sleeps. A healthy
 // vehicle settles low (tens of mA); a sustained rise is the leading sign a
 // module isn't sleeping and will flatten the 12V while parked. Heuristic

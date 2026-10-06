@@ -49,8 +49,6 @@ export type ChartPoint = {
   soh_pct: number | null;
   hvb_temp_avg_f: number | null;
   soc_depth: number | null; // soc_start_pct - soc_end_pct, % of pack used on the trip
-  v12_start: number | null;
-  v12_end: number | null;
   v12_soc_start: number | null;
   v12_quiescent_ma: number | null;
 };
@@ -242,18 +240,16 @@ export function SohTrend({ data }: { data: ChartPoint[] }) {
   );
 }
 
-// Combined 12V battery chart: terminal voltage at trip start (left axis) plus
-// quiescent/parasitic drain (right axis, mA) and 12V SoC (hidden axis, faint
-// reference). Quiescent is the better leading health signal, so it gets a
-// distinct colour and its own axis. V-at-end was dropped — during driving it's
-// mostly the DC-DC converter's output, not battery state, and just added noise.
+// Combined 12V battery chart: quiescent/parasitic drain (mA, the leading
+// health signal) plus 12V SoC (hidden axis, faint reference). Terminal voltage
+// isn't plotted: the logger connects with the car already on, so both the
+// start and end samples read the DC-DC converter's ~14.5 V output, not the
+// battery's resting voltage.
 export function V12Chart({
   data,
-  threshold,
   quiescentThreshold,
 }: {
   data: ChartPoint[];
-  threshold: number;
   quiescentThreshold: number;
 }) {
   return (
@@ -263,30 +259,15 @@ export function V12Chart({
         <XAxis {...timeXAxis(data)} />
         <YAxis
           {...axisProps}
-          yAxisId="v"
-          domain={[(min: number) => Math.min(min - 0.5, threshold - 0.3), "auto"]}
-          tickFormatter={(v: number) => v.toFixed(1)}
-          label={{ value: "Volts", angle: -90, position: "insideLeft", fill: C.muted, fontSize: 11 }}
-        />
-        <YAxis
-          {...axisProps}
           yAxisId="ma"
-          orientation="right"
           stroke={C.quiescent}
           domain={[0, (max: number) => Math.max(max + 15, quiescentThreshold + 15)]}
           tickFormatter={(v: number) => v.toFixed(0)}
-          label={{ value: "mA", angle: -90, position: "insideRight", fill: C.quiescent, fontSize: 11 }}
+          label={{ value: "mA", angle: -90, position: "insideLeft", fill: C.quiescent, fontSize: 11 }}
         />
         <YAxis {...axisProps} yAxisId="soc" orientation="right" domain={[0, 100]} hide />
         <Tooltip contentStyle={tooltipStyle} labelFormatter={tipLabel} />
         <Legend wrapperStyle={legendStyle} />
-        <ReferenceLine
-          yAxisId="v"
-          y={threshold}
-          stroke={C.bad}
-          strokeDasharray="6 4"
-          label={{ value: `${threshold} V`, fill: C.bad, fontSize: 11, position: "insideBottomRight" }}
-        />
         <ReferenceLine
           yAxisId="ma"
           y={quiescentThreshold}
@@ -329,34 +310,6 @@ export function V12Chart({
                 cy={cy}
                 r={high ? 5 : 3.5}
                 fill={high ? C.warn : C.quiescent}
-              />
-            );
-          }}
-        />
-        <Line
-          yAxisId="v"
-          type="monotone"
-          dataKey="v12_start"
-          name="V at start"
-          stroke={C.accent}
-          strokeWidth={2}
-          connectNulls
-          dot={(props) => {
-            const { cx, cy, value, index } = props as {
-              cx?: number;
-              cy?: number;
-              value?: number;
-              index?: number;
-            };
-            if (cx == null || cy == null || value == null) return <g key={`s${index}`} />;
-            const low = value < threshold;
-            return (
-              <circle
-                key={`s${index}`}
-                cx={cx}
-                cy={cy}
-                r={low ? 5 : 3}
-                fill={low ? C.bad : C.accent}
               />
             );
           }}

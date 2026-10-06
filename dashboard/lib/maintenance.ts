@@ -206,8 +206,8 @@ export const SCHEDULE: MaintenanceItem[] = [
     intervalMi: null,
     notes:
       "Replaced on condition, not mileage — and you already have better data on this " +
-      "one than a schedule could give you. The trips page tracks its age, resting " +
-      "voltage and quiescent drain; a sustained rise in drain is the leading sign it " +
+      "one than a schedule could give you. The trips page tracks its age, state of " +
+      "charge and quiescent drain; a sustained rise in drain is the leading sign it " +
       "or a module is on the way out.",
     parts: [
       {
